@@ -15,7 +15,7 @@ columns = [
     'Rider Place',
 ]
 
-race_date = '2016-04-16'
+race_date = '2016-04-23'
 race_discipline = 'RR'
 race_age_group = '15-99'
 race_class = 'Senior'
@@ -37,24 +37,50 @@ def get_rider_row(place, bib_num, race_gender, race_category):
     row_out['Race Gender'] = race_gender
     row_out['Race Class'] = race_class
     row_out['Race Age Group'] = race_age_group
-    row_out['Bib Number'] = bib_num
     row_out['Rider Place'] = place
 
+    # cast to integer if it is a number
+    try:
+        bib_num = int(bib_num)
+    except ValueError:
+        bib_num = str(bib_num)
+
     # return if no bib number
-    if bib_num == 0:
+    if isinstance(bib_num, int) and bib_num == 0:
         return row_out
 
     # 1. look up the bib number in the roster
     # 2. if that doesnt work, assume its the USAC license # and try that
     # 3. if that doesnt work, look up USAC license in master USAC list
-    if bib_num <= 1500:
+    if bib_num <= 1500: #is bib #
         db_row = db.ix[db['Race Number'] == bib_num]
-        assert(len(db_row)==1), 'incorrect number of rows for %d' %bib_num
-    else:
+        if not len(db_row)==1:
+            print 'incorrect number of rows for %d' %bib_num
+            import ipdb; ipdb.set_trace()
+        row_out['Bib Number'] = bib_num
+
+    elif isinstance(bib_num, int): # is license #
         db_row = db.ix[db['USAC License'] == bib_num]
         if not len(db_row):
             row_out['Rider License'] = bib_num
             return row_out
+
+    elif isinstance(bib_num, str): # is name
+        split_name = bib_num.split(' ')
+
+        first_name_exceptions = ['Ann Marie']
+        if not len(split_name) == 2:
+            if ' '.join(split_name[:2]) in first_name_exceptions:
+                first_name = ' '.join(split_name[:2])
+                last_name = split_name[-1]
+            else:
+                raise ValueError('cant parse name %s' %bib_num)
+        else:
+            first_name, last_name = split_name
+        row_out['Rider First Name'] = first_name
+        row_out['Rider Last Name'] = last_name
+        return row_out
+
     last_first_name = db_row['Name'].iloc[0].split(', ')
 
     # fill in rider info
@@ -85,8 +111,8 @@ def get_rider_info_dict():
             'Roster'
         ]
 
-        place_num_pairs = zip(placing_nums.index+1, placing_nums.values.astype(int))
-        place_num_pairs += zip(['DNP'] * len(dnp_nums), dnp_nums.values.astype(int))
+        place_num_pairs = zip(placing_nums.index+1, placing_nums.values) #.astype(int))
+        place_num_pairs += zip(['DNP'] * len(dnp_nums), dnp_nums) #.values.astype(int))
 
         full_info_dict.extend([
             get_rider_row(place, bib_num, race_gender, race_category)
