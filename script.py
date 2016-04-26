@@ -15,7 +15,7 @@ columns = [
     'Rider Place',
 ]
 
-race_date = '2016-03-26'
+race_date = '2016-04-16'
 race_discipline = 'RR'
 race_age_group = '15-99'
 race_class = 'Senior'
@@ -42,16 +42,19 @@ def get_rider_row(place, bib_num, race_gender, race_category):
 
     # return if no bib number
     if bib_num == 0:
-        return {}
+        return row_out
 
     # 1. look up the bib number in the roster
     # 2. if that doesnt work, assume its the USAC license # and try that
     # 3. if that doesnt work, look up USAC license in master USAC list
     if bib_num <= 1500:
         db_row = db.ix[db['Race Number'] == bib_num]
-    else: 
+        assert(len(db_row)==1), 'incorrect number of rows for %d' %bib_num
+    else:
         db_row = db.ix[db['USAC License'] == bib_num]
-    assert(len(db_row)==1), 'incorrect number of rows'
+        if not len(db_row):
+            row_out['Rider License'] = bib_num
+            return row_out
     last_first_name = db_row['Name'].iloc[0].split(', ')
 
     # fill in rider info
@@ -77,8 +80,8 @@ def get_rider_info_dict():
         df_catg = df[catg]
         placing_nums = df_catg.ix[df_catg['Results'].notnull(), 'Results']
         dnp_nums = df_catg.ix[
-            (df_catg['Roster'].notnull()) & 
-            (~df_catg['Roster'].isin(placing_nums)), 
+            (df_catg['Roster'].notnull()) &
+            (~df_catg['Roster'].isin(placing_nums)),
             'Roster'
         ]
 
