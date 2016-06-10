@@ -1,4 +1,5 @@
 import pandas as pd
+import re
 
 columns = [
     'Race Date',
@@ -15,10 +16,8 @@ columns = [
     'Rider Place',
 ]
 
-race_date = '2016-04-23'
+race_date = '2016-05-29'
 race_discipline = 'RR'
-race_age_group = '15-99'
-race_class = 'Senior'
 
 fname = 'club_%s.csv' % race_date.replace('-', '')
 fname_out = 'club_%s_FINAL.csv' % race_date.replace('-', '')
@@ -27,7 +26,7 @@ df = pd.read_csv(fname, header=[0,1])
 del fname
 df_out = pd.DataFrame(columns=columns)
 
-def get_rider_row(place, bib_num, race_gender, race_category):
+def get_rider_row(place, bib_num, race_gender, race_category, race_age_group, race_class):
 
     # initialize with rider non-specific info
     row_out = {}
@@ -95,13 +94,27 @@ def get_rider_info_dict():
     full_info_dict = []
     for catg in df.columns.levels[0]:
 
-        race_category = catg[1:] #'/'.join([x for x in catg[1:]])
-        if catg[0] == 'M':
-            race_gender = 'Men'
-        elif catg[0] == 'W':
-            race_gender = 'Women'
+        match = re.findall('(M|W)(\d+)\+', catg)
+        if not len(match):
+            race_category = catg[1:] #'/'.join([x for x in catg[1:]])
+            if catg[0] == 'M':
+                race_gender = 'Men'
+            elif catg[0] == 'W':
+                race_gender = 'Women'
+            else:
+                raise Exception
+            race_age_group = '15-99'
+            race_class = 'Senior'
         else:
-            raise Exception
+            if match[0][0] == 'M':
+                race_gender = 'Men'
+            elif match[0][0] == 'W':
+                race_gender = 'Women'
+            else:
+                raise Exception
+            race_category = '1234'
+            race_age_group = '%s-99' %match[0][1]
+            race_class = 'Master'
 
         df_catg = df[catg]
         placing_nums = df_catg.ix[df_catg['Results'].notnull(), 'Results']
@@ -115,7 +128,7 @@ def get_rider_info_dict():
         place_num_pairs += zip(['DNP'] * len(dnp_nums), dnp_nums) #.values.astype(int))
 
         full_info_dict.extend([
-            get_rider_row(place, bib_num, race_gender, race_category)
+            get_rider_row(place, bib_num, race_gender, race_category, race_age_group, race_class)
             for place, bib_num in place_num_pairs
         ])
     return full_info_dict
